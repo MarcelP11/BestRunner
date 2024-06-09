@@ -134,7 +134,7 @@ public class HelloApplication extends Application {
             if (newToggle != null) {
                 sensorStartEnabled = newToggle == sensorOn;
                 readyButton.setDisable(!sensorStartEnabled);
-                cancelButton.setDisable(!sensorStartEnabled);
+                cancelButton.setDisable(true);
             }
         });
 
@@ -173,6 +173,8 @@ public class HelloApplication extends Application {
                 startTimer();
                 startButton.setDisable(true);
                 stopButton.setDisable(false);
+                readyButton.setDisable(true);
+                cancelButton.setDisable(true);
             }
         });
 
@@ -181,6 +183,8 @@ public class HelloApplication extends Application {
                 stopTimer();
                 startButton.setDisable(false);
                 stopButton.setDisable(true);
+                readyButton.setDisable(false);
+                cancelButton.setDisable(true);
             }
         });
         stopButton.setDisable(true);
@@ -201,13 +205,18 @@ public class HelloApplication extends Application {
         });
 
         HBox nameTeamBox = new HBox(10, new Label("Player name:"), nameField, new Label("Team:"), teamField);
-        HBox buttonsBox = new HBox(10, deleteButton, exportButton);
+        HBox buttonsBox = new HBox(10, startButton, readyButton, cancelButton, stopButton);
         HBox disableStopBox = new HBox(10, new Label("Disable Stop (seconds):"), disableStopSpinner);
 
         HBox statusBox = new HBox(statusLabel, connectionBox, soundBox, sensorBox);
         statusBox.setSpacing(10);
         statusBox.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(connectionBox, Priority.ALWAYS);
+
+        Label resultsLabel = new Label("RESULTS");
+        resultsLabel.setStyle("-fx-font-size: 1.5em;");
+        HBox resultsBox = new HBox(resultsLabel);
+        resultsBox.setAlignment(Pos.CENTER);
 
         VBox root = new VBox(10);
         root.setPadding(new Insets(20));
@@ -219,12 +228,10 @@ public class HelloApplication extends Application {
                 timerLabel,
                 disableStopBox,
                 nameTeamBox,
-                startButton,
-                readyButton,
-                cancelButton,
-                stopButton,
-                new Separator(),
                 buttonsBox,
+                new Separator(),
+                resultsBox,
+                new HBox(10, deleteButton, exportButton),
                 tableView
         );
 
@@ -255,7 +262,7 @@ public class HelloApplication extends Application {
         new Thread(() -> {
             SerialPort[] ports = SerialPort.getCommPorts();
             for (SerialPort port : ports) {
-                if (port.getDescriptivePortName().contains("COM3")) { //change name if you need
+                if (port.getDescriptivePortName().contains("COM3")) {
                     chosenPort = port;
                     break;
                 }
@@ -279,8 +286,9 @@ public class HelloApplication extends Application {
                         Platform.runLater(() -> stopButton.fire());
                     }
 
-                    if (readBuffer[0] == '1' && readyForSensorStart) {
+                    if (readBuffer[0] == '1' && sensorStartEnabled && readyForSensorStart) {
                         Platform.runLater(() -> startButton.fire());
+                        readyForSensorStart = false;
                     }
                 }
             }
@@ -300,33 +308,31 @@ public class HelloApplication extends Application {
     }
 
     private void startTimer() {
-        if (validateInput()) {
-            currentName = nameField.getText();
-            currentTeam = teamField.getText();
-            elapsedSeconds = 0;
-            elapsedMillis = 0;
+        currentName = nameField.getText();
+        currentTeam = teamField.getText();
+        elapsedSeconds = 0;
+        elapsedMillis = 0;
 
-            timeline = new Timeline(new KeyFrame(Duration.millis(10), event -> {
-                elapsedMillis += 10;
-                if (elapsedMillis >= 1000) {
-                    elapsedMillis = 0;
-                    elapsedSeconds++;
-                }
-                updateTimerLabel();
-            }));
-            timeline.setCycleCount(Animation.INDEFINITE);
-            timeline.play();
-
-            statusLabel.setText("Timer is running");
-            statusLabel.setTextFill(Color.GREEN);
-            isRunning = true;
-
-            allowStop = false;
-            if (disableStopSeconds > 0) {
-                new Timeline(new KeyFrame(Duration.seconds(disableStopSeconds), event -> allowStop = true)).play();
-            } else {
-                allowStop = true;
+        timeline = new Timeline(new KeyFrame(Duration.millis(10), event -> {
+            elapsedMillis += 10;
+            if (elapsedMillis >= 1000) {
+                elapsedMillis = 0;
+                elapsedSeconds++;
             }
+            updateTimerLabel();
+        }));
+        timeline.setCycleCount(Animation.INDEFINITE);
+        timeline.play();
+
+        statusLabel.setText("Timer is running");
+        statusLabel.setTextFill(Color.GREEN);
+        isRunning = true;
+
+        allowStop = false;
+        if (disableStopSeconds > 0) {
+            new Timeline(new KeyFrame(Duration.seconds(disableStopSeconds), event -> allowStop = true)).play();
+        } else {
+            allowStop = true;
         }
     }
 
